@@ -1,4 +1,5 @@
-import { gradeLocally } from "../src/grading/localGrader";
+import { GoogleGenAI } from "@google/genai";
+import { gradeLocally } from "../src/grading/localGrader.js";
 
 export default async function handler(req: any, res: any) {
 

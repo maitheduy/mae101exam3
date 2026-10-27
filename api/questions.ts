@@ -1,4 +1,4 @@
-import { questionsData } from "../src/data/questions";
+import { questionsData } from "../src/data/questions.js";
 
 export default function handler(req: any, res: any) {
   if (req.method !== "GET") {
