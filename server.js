@@ -1,3 +1,16 @@
+// src/grading/localGrader.ts
+function gradeLocally(userAnswer, questionData) {
+  const cleanUser = (userAnswer || "").toLowerCase().replace(/\s+/g, "");
+  const cleanKey = (questionData.answerKey || "").toLowerCase().replace(/\s+/g, "");
+  const isMatch = cleanUser.length > 0 && (cleanUser.includes(cleanKey) || cleanKey.includes(cleanUser) || (cleanKey.match(/-?\d+(\.\d+)?/g) || []).some((num) => cleanUser.includes(num)));
+  return {
+    score: isMatch ? 1 : 0,
+    isCorrect: isMatch,
+    aiFeedback: isMatch ? "Ch\u1EA5m \u0111i\u1EC3m offline: \u0110\xE1p s\u1ED1 ho\u1EB7c c\xE1ch l\xE0m c\u1EE7a b\u1EA1n kh\u1EDBp v\u1EDBi \u0111\xE1p \xE1n chu\u1EA9n. \u0110\u1EA1t 1 \u0111i\u1EC3m t\u1ED1i \u0111a!" : `Ch\u1EA5m \u0111i\u1EC3m offline: \u0110\xE1p \xE1n b\u1EA1n nh\u1EADp ch\u01B0a kh\u1EDBp v\u1EDBi \u0111\xE1p \xE1n chu\u1EA9n (${questionData.answerKey}). H\xE3y xem l\u1EA1i l\u1EDDi gi\u1EA3i chi ti\u1EBFt b\xEAn d\u01B0\u1EDBi.`,
+    skillsIdentified: [questionData.topic]
+  };
+}
+
 // server.ts
 import express from "express";
 import path from "path";
@@ -243,17 +256,6 @@ app.use(express.json());
 app.get("/api/questions", (req, res) => {
   res.json(questionsData);
 });
-function gradeLocally(userAnswer, questionData) {
-  const cleanUser = (userAnswer || "").toLowerCase().replace(/\s+/g, "");
-  const cleanKey = (questionData.answerKey || "").toLowerCase().replace(/\s+/g, "");
-  const isMatch = cleanUser.length > 0 && (cleanUser.includes(cleanKey) || cleanKey.includes(cleanUser) || (cleanKey.match(/-?\d+(\.\d+)?/g) || []).some((num) => cleanUser.includes(num)));
-  return {
-    score: isMatch ? 1 : 0,
-    isCorrect: isMatch,
-    aiFeedback: isMatch ? "Ch\u1EA5m \u0111i\u1EC3m offline: \u0110\xE1p s\u1ED1 ho\u1EB7c c\xE1ch l\xE0m c\u1EE7a b\u1EA1n kh\u1EDBp v\u1EDBi \u0111\xE1p \xE1n chu\u1EA9n. \u0110\u1EA1t 1 \u0111i\u1EC3m t\u1ED1i \u0111a!" : `Ch\u1EA5m \u0111i\u1EC3m offline: \u0110\xE1p \xE1n b\u1EA1n nh\u1EADp ch\u01B0a kh\u1EDBp v\u1EDBi \u0111\xE1p \xE1n chu\u1EA9n (${questionData.answerKey}). H\xE3y xem l\u1EA1i l\u1EDDi gi\u1EA3i chi ti\u1EBFt b\xEAn d\u01B0\u1EDBi.`,
-    skillsIdentified: [questionData.topic]
-  };
-}
 app.post("/api/grade", async (req, res) => {
   try {
     const { questionId, userAnswer, questionData, aiSettings } = req.body;
