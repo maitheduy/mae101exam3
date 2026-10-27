@@ -23,8 +23,12 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    const provider = aiSettings?.provider || "gemini";
-    const apiKey = aiSettings?.apiKey || process.env.GEMINI_API_KEY;
+    const provider = aiSettings?.provider || "openai";
+
+    // Production secrets live only on Vercel. Never require the browser to send an API key.
+    const apiKey = provider === "openai"
+      ? process.env.OPENAI_API_KEY
+      : process.env.GEMINI_API_KEY;
 
     // Deterministic fallback: always available and never requires an external API.
     if (provider === "offline" || !apiKey || apiKey === "MY_GEMINI_API_KEY") {
