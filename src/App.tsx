@@ -173,9 +173,8 @@ export default function App() {
   const [copiedToast, setCopiedToast] = useState<boolean>(false);
 
   // AI Settings State
-  const [aiSettings, setAiSettings] = useState<{ provider: 'offline' | 'gemini' | 'openai'; apiKey: string }>({
-    provider: 'gemini',
-    apiKey: ''
+  const [aiSettings, setAiSettings] = useState<{ provider: 'offline' | 'gemini' | 'openai' }>({
+    provider: 'openai'
   });
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
 
@@ -218,7 +217,8 @@ export default function App() {
     const savedAiSettings = localStorage.getItem('mae101_ai_settings');
     if (savedAiSettings) {
       try {
-        setAiSettings(JSON.parse(savedAiSettings));
+        const parsed = JSON.parse(savedAiSettings);
+        setAiSettings({ provider: parsed.provider || 'openai' });
       } catch (e) {
         console.error(e);
       }
@@ -263,7 +263,7 @@ export default function App() {
     localStorage.setItem('mae101_history', JSON.stringify(updatedHistory));
   };
 
-  const saveAiSettings = (newSettings: { provider: 'offline' | 'gemini' | 'openai'; apiKey: string }) => {
+  const saveAiSettings = (newSettings: { provider: 'offline' | 'gemini' | 'openai' }) => {
     setAiSettings(newSettings);
     localStorage.setItem('mae101_ai_settings', JSON.stringify(newSettings));
     setShowSettingsModal(false);
@@ -415,7 +415,6 @@ export default function App() {
         body: JSON.stringify({
           questionId: qId,
           userAnswer,
-          questionData: qData,
           aiSettings
         })
       });
