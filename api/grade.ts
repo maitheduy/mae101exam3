@@ -1,16 +1,34 @@
 import { GoogleGenAI } from "@google/genai";
+import { questionsData } from "../src/data/questions.js";
 import { gradeLocally } from "../src/grading/localGrader.js";
 
 export default async function handler(req: any, res: any) {
-
   try {
-    const { questionId, userAnswer, questionData, aiSettings } = req.body;
-    
-    const provider = aiSettings?.provider || 'gemini';
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method Not Allowed" });
+    }
+
+    const { questionId, userAnswer, aiSettings } = req.body || {};
+
+    // The API is the source of truth for question data.
+    // The client may send questionData, but it is not required.
+    const questionData =
+      req.body?.questionData ||
+      questionsData.find((q: any) => String(q.id) === String(questionId));
+
+    if (!questionData) {
+      return res.status(400).json({
+        error: "Question not found",
+        questionId
+      });
+    }
+
+    const provider = aiSettings?.provider || "gemini";
     const apiKey = aiSettings?.apiKey || process.env.GEMINI_API_KEY;
 
-    if (provider === 'offline' || !apiKey || apiKey === 'MY_GEMINI_API_KEY') {
-      return res.json(gradeLocally(userAnswer, questionData));
+    // Deterministic fallback: always available and never requires an external API.
+    if (provider === "offline" || !apiKey || apiKey === "MY_GEMINI_API_KEY") {
+      return res.status(200).json(gradeLocally(userAnswer, questionData));
     }
 
     const prompt = `You are an expert professor of Calculus and Linear Algebra (MAE101) grading student math exam answers.
@@ -40,50 +58,34 @@ Evaluate the student's answer according to the generous rules above. Return a JS
 
 Return ONLY valid JSON.`;
 
-    if (provider === 'openai') {
-      const openAiResp = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
+    if (provider === "openai") {
+      const openAiResp = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: "gpt-4o-mini",
           messages: [
-            { role: 'system', content: 'You are an expert math professor grading MAE101 exam answers in JSON format.' },
-            { role: 'user', content: prompt }
+            {
+              role: "system",
+              content: "You are an expert math professor grading MAE101 exam answers in JSON format."
+            },
+            { role: "user", content: prompt }
           ],
-          response_format: { type: 'json_object' }
+          response_format: { type: "json_object" }
         })
       });
-      const openAiData = await openAiResp.json();
-      const content = openAiData.choices?.[0]?.message?.content || "{}";
-      const parsed = JSON.parse(content);
-      return res.json({
-        score: parsed.score ?? (parsed.isCorrect ? 1 : 0),
-        isCorrect: parsed.isCorrect ?? (parsed.score === 1),
-        aiFeedback: parsed.aiFeedback || "Chấm điểm hoàn tất.",
-        skillsIdentified: parsed.skillsIdentified || [questionData.topic]
-      });
-    } else {
-      const customAi = new GoogleGenAI({
-        apiKey: apiKey,
-        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
-      });
-      const response = await customAi.models.generateContent({
-        model: "gemini-3.8-flash",
-        contents: prompt,
-        config: { responseMimeType: "application/json" }
-      });
-      const textResult = response.text || "{}";
-      let parsed;
-      try {
-        parsed = JSON.parse(textResult);
-      } catch (e) {
-        const cleaned = textResult.replace(/```json/g, '').replace(/```/g, '').trim();
-        parsed = JSON.parse(cleaned);
+
+      if (!openAiResp.ok) {
+        throw new Error(`OpenAI API error: ${openAiResp.status}`);
       }
-      return res.json({
+
+      const openAiData = await openAiResp.json();
+      const parsed = JSON.parse(openAiData.choices?.[0]?.message?.content || "{}");
+
+      return res.status(200).json({
         score: parsed.score ?? (parsed.isCorrect ? 1 : 0),
         isCorrect: parsed.isCorrect ?? (parsed.score === 1),
         aiFeedback: parsed.aiFeedback || "Chấm điểm hoàn tất.",
@@ -91,8 +93,48 @@ Return ONLY valid JSON.`;
       });
     }
 
+    const customAi = new GoogleGenAI({
+      apiKey,
+      httpOptions: { headers: { "User-Agent": "aistudio-build" } }
+    });
+
+    const response = await customAi.models.generateContent({
+      model: "gemini-3.8-flash",
+      contents: prompt,
+      config: { responseMimeType: "application/json" }
+    });
+
+    const textResult = response.text || "{}";
+    let parsed;
+
+    try {
+      parsed = JSON.parse(textResult);
+    } catch {
+      const cleaned = textResult.replace(/```json/g, "").replace(/```/g, "").trim();
+      parsed = JSON.parse(cleaned);
+    }
+
+    return res.status(200).json({
+      score: parsed.score ?? (parsed.isCorrect ? 1 : 0),
+      isCorrect: parsed.isCorrect ?? (parsed.score === 1),
+      aiFeedback: parsed.aiFeedback || "Chấm điểm hoàn tất.",
+      skillsIdentified: parsed.skillsIdentified || [questionData.topic]
+    });
   } catch (error: any) {
-    console.warn("AI grading error or offline, falling back to local grading:", error.message);
-    return res.json(gradeLocally(req.body.userAnswer, req.body.questionData));
+    console.warn("AI grading error; falling back to local grading:", error?.message || error);
+
+    const { questionId, userAnswer } = req.body || {};
+    const questionData =
+      req.body?.questionData ||
+      questionsData.find((q: any) => String(q.id) === String(questionId));
+
+    if (!questionData) {
+      return res.status(400).json({
+        error: "Question not found",
+        questionId
+      });
+    }
+
+    return res.status(200).json(gradeLocally(userAnswer, questionData));
   }
 }
