@@ -173,8 +173,9 @@ export default function App() {
   const [copiedToast, setCopiedToast] = useState<boolean>(false);
 
   // AI Settings State
-  const [aiSettings, setAiSettings] = useState<{ provider: 'offline' | 'gemini' | 'openai' }>({
-    provider: 'openai'
+  const [aiSettings, setAiSettings] = useState<{ provider: 'offline' | 'gemini' | 'openai'; apiKey: string }>({
+    provider: 'offline',
+    apiKey: ''
   });
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
 
@@ -218,7 +219,7 @@ export default function App() {
     if (savedAiSettings) {
       try {
         const parsed = JSON.parse(savedAiSettings);
-        setAiSettings({ provider: parsed.provider || 'openai' });
+        setAiSettings({ provider: parsed.provider || 'offline', apiKey: '' });
       } catch (e) {
         console.error(e);
       }
@@ -263,9 +264,10 @@ export default function App() {
     localStorage.setItem('mae101_history', JSON.stringify(updatedHistory));
   };
 
-  const saveAiSettings = (newSettings: { provider: 'offline' | 'gemini' | 'openai' }) => {
+  const saveAiSettings = (newSettings: { provider: 'offline' | 'gemini' | 'openai'; apiKey: string }) => {
     setAiSettings(newSettings);
-    localStorage.setItem('mae101_ai_settings', JSON.stringify(newSettings));
+    // Persist only the provider. Never store an API key in localStorage.
+    localStorage.setItem('mae101_ai_settings', JSON.stringify({ provider: newSettings.provider }));
     setShowSettingsModal(false);
     alert("Đã lưu cấu hình chế độ AI thành công!");
   };
